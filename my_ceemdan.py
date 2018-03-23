@@ -10,7 +10,7 @@ def imf_n(data, num, bc="natural"):
     if len(imfs) >= num:
         return np.array(imfs[num - 1])
     else:
-        return np.nan
+        return None
 
 
 def ceemdan(data, I=500, sd=0.1, max_extr=2, bc="natural"):
@@ -37,7 +37,7 @@ def ceemdan(data, I=500, sd=0.1, max_extr=2, bc="natural"):
         imfs_num = []
         for i in range(int(I)):
             imf_num = imf_n(reside + epsilon * imf_n(np.random.normal(0, 1, size), num, bc=bc), 1, bc=bc)
-            if imf_num is np.nan:
+            if imf_num is None:
                 finish = True
                 break
             imfs_num.append(imf_num)
@@ -60,7 +60,6 @@ def ceemdan(data, I=500, sd=0.1, max_extr=2, bc="natural"):
         imfs.append(imf_num)
         print("imf", num, "is ready")
         num += 1
-
     return imfs
 
 
@@ -110,8 +109,8 @@ def main():
 
     #region INPUT
     # periodic ; delta ; sin ; sample_signal ; gauss_A
-    fname = "periodic"
-    I = 200
+    fname = "gauss_20000_A"
+    I = 199
     bc_type = 'natural'
     max_extremas = 2
     sd = 0.1
@@ -119,7 +118,7 @@ def main():
     save_images = False
     #endregion
 
-    signal = np.load(fname  + ".npy")
+    signal = np.load(fname + ".npy")
     imfs = ceemdan(signal, bc=bc_type, sd=sd, max_extr=max_extremas, I=I)
     #noise_check(imfs)
 
@@ -127,6 +126,10 @@ def main():
     if save_images or show_images:
         plt.figure("INPUT")
         plt.plot(signal)
+        mng = plt.get_current_fig_manager()
+        mng.window.showMaximized()
+        if save_images:
+            plt.savefig("img/INPUT_" + fname)
 
         plt.figure("IMFs")
         l = len(imfs)
@@ -137,6 +140,10 @@ def main():
             plt.ylabel(title)
             plt.ylim([-max_amp - 0.05*max_amp, max_amp + 0.05*max_amp])
             plt.plot(imfs[i])
+        mng = plt.get_current_fig_manager()
+        mng.window.showMaximized()
+        if save_images:
+            plt.savefig("img/IMFs_" + fname + "_" + bc_type + "_" + str(I))
 
         plt.figure("POWER SPECTRAL DESTINY")
         max_psd = max([max(welch(imf)[1]) for imf in imfs])
@@ -147,6 +154,10 @@ def main():
             freq, psd = welch(imfs[i])
             plt.ylim(0, max_psd)
             plt.plot(freq, psd)
+        mng = plt.get_current_fig_manager()
+        mng.window.showMaximized()
+        if save_images:
+            plt.savefig("img/PSD_" + fname + "_" + bc_type + "-" + str(I))
 
         plt.figure("POWER SPECTRAL DESTINY, LOG")
         for i in range(l):
@@ -157,20 +168,11 @@ def main():
             plt.xscale('log')
             plt.ylim(0, max_psd)
             plt.plot(freq, psd)
-
-        plt.figure("OUTPUT")
-        m = len(imfs[0])
-        out = np.zeros((m), np.float64)
-        for i in range(m):
-            for j in range(l):
-                out[i] += imfs[j][i]
-        plt.plot(out)
-
+            mng = plt.get_current_fig_manager()
+            mng.window.showMaximized()
         if save_images:
-            plt.savefig("img/INPUT_" + fname)
-            plt.savefig("img/IMFs_" + fname + "_" + bc_type + "_" + str(I))
-            plt.savefig("img/PSD_" + fname + "_" + bc_type + "-" + str(I))
             plt.savefig("img/PSD_LOG_"+fname+"_"+bc_type+"-"+str(I))
+
         if show_images:
             plt.show()
     # endregion
