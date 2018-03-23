@@ -1,6 +1,5 @@
 import numpy as np
 from scipy import signal, interpolate
-import matplotlib.pyplot as plt
 
 
 def emd(data, sd=0.1, bc="natural"):
@@ -48,34 +47,3 @@ def emd(data, sd=0.1, bc="natural"):
     # Add residue
     imfs.append(data - sum(imfs))
     return imfs
-
-
-def main():
-    sign = np.load("sin.npy")
-    imfs = emd(sign)
-
-    plt.figure()
-    plt.plot(sign)
-
-    plt.figure()
-    l = len(imfs)
-    for i in range(l):
-        plt.subplot(l, 1, i+1)
-        plt.plot(imfs[i])
-
-    plt.figure()
-    l = len(imfs)
-    m = len(imfs[0])
-    out = np.zeros((m), np.float16)
-    for i in range(m):
-        for j in range(l):
-            out[i] += imfs[j][i]
-
-    plt.plot(out)
-
-    plt.show()
-
-
-if __name__ == "__main__":
-    main()
-# vim: set tw=100:
