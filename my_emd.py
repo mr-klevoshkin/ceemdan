@@ -16,12 +16,12 @@ def emd(data, sd=0.1, bc="natural"):
         for _ in range(50):
             maxima_idx = signal.argrelmax(h_prev, order=1)[0]
             minima_idx = signal.argrelmin(h_prev, order=1)[0]
-            #maxima_idx = np.insert(maxima_idx, 0, 0)
-            #maxima_idx = np.append(maxima_idx, len(h_prev) - 1)
-            #minima_idx = np.insert(minima_idx, 0, 0)
-            #minima_idx = np.append(minima_idx, len(h_prev) - 1)
+            maxima_idx = np.insert(maxima_idx, 0, 0)
+            maxima_idx = np.append(maxima_idx, len(h_prev) - 1)
+            minima_idx = np.insert(minima_idx, 0, 0)
+            minima_idx = np.append(minima_idx, len(h_prev) - 1)
 
-            if (len(maxima_idx) + len(minima_idx)) <= 3:
+            if (len(maxima_idx) + len(minima_idx)) <= 6:
                 last_imf = True
                 break
 
@@ -29,8 +29,6 @@ def emd(data, sd=0.1, bc="natural"):
             minima_vals = interpolate.CubicSpline(minima_idx, h_prev[minima_idx], bc_type=bc)(t)
 
             mean = 0.5*(maxima_vals + minima_vals)
-            #mode_ampl = 0.5*(maxima_vals - minima_vals)
-            #eval_func = np.abs(mean / mode_ampl)
             h = h_prev - mean
             _i += 1
 

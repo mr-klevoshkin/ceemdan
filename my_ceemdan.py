@@ -4,24 +4,16 @@ from my_emd import emd
 from scipy.signal import welch
 from scipy import signal
 
-def plot_3 (ch1, ch2, ch3):
-    ch = [ch1, ch2, ch3]
-    plt.figure()
-    for i in range(3):
-        plt.subplot(3, 1, i + 1)
-        plt.plot(ch[i])
-    plt.show()
-
 
 def imf_n(data, num, bc="natural"):
     imfs = emd(data, bc=bc)
     if len(imfs) >= num:
         return np.array(imfs[num - 1])
     else:
-        return np.array(0)
+        return np.nan
 
 
-def ceemdan(data, I=500, sd=0.1, bc="natural"):
+def ceemdan(data, I=500, sd=0.1, max_extr=2, bc="natural"):
     epsilon = 0.08
     size = data.shape[0]
     imfs = []
@@ -45,14 +37,21 @@ def ceemdan(data, I=500, sd=0.1, bc="natural"):
         imfs_num = []
         for i in range(int(I)):
             imf_num = imf_n(reside + epsilon * imf_n(np.random.normal(0, 1, size), num, bc=bc), 1, bc=bc)
-            if imf_num.all() == 0:
+            if imf_num is np.nan:
                 finish = True
+                break
             imfs_num.append(imf_num)
-        imf_num = sum(imfs_num) / I
+        if not finish:
+            imf_num = sum(imfs_num) / I
 
-        # finish criterion
-        if (len(signal.argrelmax(imf_num, order=1)[0]) + len(signal.argrelmin(imf_num, order=1)[0])) < 3:
+        # finish criterion by number of extremas
+        if (len(signal.argrelmax(imf_num, order=1)[0]) + len(signal.argrelmin(imf_num, order=1)[0])) <= max_extr:
             finish = True
+
+        # finish criterion by difference in amps
+        sd_ = np.sum((imf_num - imf_prev) ** 2) / np.sum(imf_prev ** 2)
+        if sd_ < sd:
+            break
 
         if finish:
             imfs.append(np.array(reside))
@@ -64,7 +63,8 @@ def ceemdan(data, I=500, sd=0.1, bc="natural"):
 
     return imfs
 
-def table(imfs):
+
+def noise_check(imfs):
     '''
     m = np.eye(len(imfs), len(imfs))
     for i in range(len(imfs)):
@@ -103,71 +103,77 @@ def table(imfs):
     plt.yscale("log")
     plt.ylabel("lnW")
     plt.plot(periods, w, color='red', marker='o')
+    plt.show()
 
 
 def main():
-    #==================== INPUT =======================
+
+    #region INPUT
     # periodic ; delta ; sin ; sample_signal ; gauss_A
-    fname = "noise_10000"
-    I = 201
+    fname = "periodic"
+    I = 200
     bc_type = 'natural'
-    #==================================================
+    max_extremas = 2
+    sd = 0.1
+    show_images = True
+    save_images = False
+    #endregion
+
     signal = np.load(fname  + ".npy")
-    imfs = ceemdan(signal, bc=bc_type, I=I)
-    table(imfs)
+    imfs = ceemdan(signal, bc=bc_type, sd=sd, max_extr=max_extremas, I=I)
+    #noise_check(imfs)
 
-    plt.figure()
-    plt.xscale("log")
-    plt.yscale("log")
-    freqs, psd = welch(signal)
-    plt.plot(freqs, psd)
+    # region Plotting
+    if save_images or show_images:
+        plt.figure("INPUT")
+        plt.plot(signal)
 
-    #'''
-    plt.figure("INPUT")
-    plt.plot(signal)
-    plt.savefig("img/INPUT_"+fname)
-    
-    plt.figure("IMFs")
-    l = len(imfs)
-    for i in range(l):
-        plt.subplot(l, 1, i + 1)
-        title = str(i) + " imf"
-        # plt.title(title)
-        plt.plot(imfs[i])
-    plt.savefig("img/IMFs_"+fname+"_"+bc_type+"_"+str(I))
+        plt.figure("IMFs")
+        l = len(imfs)
+        max_amp = max([max(np.abs(imf)) for imf in imfs])
+        for i in range(l):
+            plt.subplot(l, 1, i + 1)
+            title = str(i) + " imf"
+            plt.ylabel(title)
+            plt.ylim([-max_amp - 0.05*max_amp, max_amp + 0.05*max_amp])
+            plt.plot(imfs[i])
 
-    plt.figure("POWER SPECTRAL DESTINY")
-    max_psd = max([max(welch(imf)[1]) for imf in imfs])
-    for i in range(l):
-        plt.subplot(l, 1, i + 1)
-        title = str(i) + " imf"
-        plt.title(title)
-        freq, psd = welch(imfs[i])
-        plt.ylim(0, max_psd)
-        plt.plot(freq, psd)
-    plt.savefig("img/PSD_"+fname+"_"+bc_type+"-"+str(I))
+        plt.figure("POWER SPECTRAL DESTINY")
+        max_psd = max([max(welch(imf)[1]) for imf in imfs])
+        for i in range(l):
+            plt.subplot(l, 1, i + 1)
+            title = str(i) + " imf"
+            plt.title(title)
+            freq, psd = welch(imfs[i])
+            plt.ylim(0, max_psd)
+            plt.plot(freq, psd)
 
-    plt.figure("POWER SPECTRAL DESTINY, LOG")
-    for i in range(l):
-        plt.subplot(l, 1, i + 1)
-        title = str(i) + " imf"
-        plt.title(title)
-        freq, psd = welch(imfs[i])
-        plt.xscale('log')
-        plt.ylim(0, max_psd)
-        plt.plot(freq, psd)
-    plt.savefig("img/PSD_LOG_"+fname+"_"+bc_type+"-"+str(I))
+        plt.figure("POWER SPECTRAL DESTINY, LOG")
+        for i in range(l):
+            plt.subplot(l, 1, i + 1)
+            title = str(i) + " imf"
+            plt.title(title)
+            freq, psd = welch(imfs[i])
+            plt.xscale('log')
+            plt.ylim(0, max_psd)
+            plt.plot(freq, psd)
 
-    plt.figure("OUTPUT")
-    m = len(imfs[0])
-    out = np.zeros((m), np.float64)
-    for i in range(m):
-        for j in range(l):
-            out[i] += imfs[j][i]
-    plt.plot(out)
-    #'''
-    plt.show()
+        plt.figure("OUTPUT")
+        m = len(imfs[0])
+        out = np.zeros((m), np.float64)
+        for i in range(m):
+            for j in range(l):
+                out[i] += imfs[j][i]
+        plt.plot(out)
 
+        if save_images:
+            plt.savefig("img/INPUT_" + fname)
+            plt.savefig("img/IMFs_" + fname + "_" + bc_type + "_" + str(I))
+            plt.savefig("img/PSD_" + fname + "_" + bc_type + "-" + str(I))
+            plt.savefig("img/PSD_LOG_"+fname+"_"+bc_type+"-"+str(I))
+        if show_images:
+            plt.show()
+    # endregion
 
 if __name__ == "__main__":
     main()
